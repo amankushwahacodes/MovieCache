@@ -143,8 +143,9 @@ function NumResults({ movies }) {
 
 function Logo() {
   return <div className="logo">
-    <span role="img">🍿</span>
-    <h1>usePopcorn</h1>
+    {/* <span role="img">🍿</span> */}
+    <img className="imglogo" src="./movie.png" alt="MovieCache"/>
+    <h1>MovieCache</h1>
   </div>
 }
 
