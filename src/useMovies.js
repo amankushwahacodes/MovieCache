@@ -27,7 +27,7 @@ export function useMovies(query,callback){
             setError("");
           }
           catch (e) {
-            if(error.name !== 'AbortError'){
+            if(e.name !== 'AbortError'){
               setError(e.message);
             }
           }

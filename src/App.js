@@ -1,9 +1,10 @@
-import {useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MovieDetails from "./MovieDetails";
 import WatchedSummary from "./WatchedSummary";
 import { useMovies } from "./useMovies";
 import { useLocalStorageState } from "./useLocalStorageState";
 import { useKey } from "./useKey";
+import useDebounce from "./useDebounce";
 
 // const tempMovieData = [
 //   {
@@ -55,13 +56,13 @@ import { useKey } from "./useKey";
 
 
 export default function App() {
- 
+
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(null);
 
-  const {movies,isLoading,error} = useMovies(query,handleCloseMovie);
+  const { movies, isLoading, error } = useMovies(query, handleCloseMovie);
 
-  const [watched,setWatched] = useLocalStorageState([],'watched')
+  const [watched, setWatched] = useLocalStorageState([], 'watched')
 
 
 
@@ -80,14 +81,14 @@ export default function App() {
     // localStorage.setItem('watched',JSON.stringify([...watched,movie]))
   }
 
-  function handleDeleteWatched(id){
+  function handleDeleteWatched(id) {
     setWatched(watched => watched.filter(movie => movie.imdbID !== id))
   }
   return (
     <>
       <NavBar>
         <Search query={query} setQuery={setQuery} />
-        <NumResults movies={movies} />
+        <NumResults query={query} movies={movies} />
       </NavBar>
       <Main>
         <Box>
@@ -100,7 +101,7 @@ export default function App() {
           {selectedId ? <MovieDetails selectedId={selectedId} onCloseMovie={handleCloseMovie} onAddWatched={handleAddWatched} watched={watched} /> :
             <>
               <WatchedSummary watched={watched} />
-              <WatchedMovieList watched={watched} onDeleteWatched = {handleDeleteWatched} />
+              <WatchedMovieList watched={watched} onDeleteWatched={handleDeleteWatched} />
             </>
           }
         </Box>
@@ -135,16 +136,15 @@ function NavBar({ children }) {
 
 
 
-function NumResults({ movies }) {
-  return <p className="num-results">
+function NumResults({ movies , query }) {
+  return query && <p className="num-results">
     Found <strong>{movies.length}</strong> results
   </p>
 }
 
 function Logo() {
   return <div className="logo">
-    {/* <span role="img">🍿</span> */}
-    <img className="imglogo" src="./movie.png" alt="MovieCache"/>
+    <img className="imglogo" src="./movie.png" alt="MovieCache" />
     <h1>MovieCache</h1>
   </div>
 }
@@ -153,12 +153,18 @@ function Logo() {
 function Search({ query, setQuery }) {
   const inputEl = useRef(null);
 
-  useKey('Enter',function(){
+  const debounced =  useDebounce(query,500);
+
+  useEffect(function(){
+    setQuery(debounced)
+  },[setQuery,debounced])
+
+  useKey('Enter', function () {
     if (document.activeElement === inputEl.current) {
       return;
     }
-    setQuery('');
-  }) 
+    setQuery(''); 
+  })
 
   return <input
     className="search"
@@ -172,7 +178,6 @@ function Search({ query, setQuery }) {
 
 
 function Main({ children }) {
-
   return <main className="main">
     {children}
   </main>
@@ -237,12 +242,43 @@ function Movie({ movie, onSelectMovie }) {
 }
 
 function WatchedMovieList({ watched, onDeleteWatched }) {
-  return <ul className="list">
-    {watched.map((movie) => <WatchedMovie movie={movie} key={movie.imdbID} onDeleteWatched={onDeleteWatched}/>)}
-  </ul>
+  const [sortBy, setSortBy] = useState("title");
+  const [filter, setfilter] = useState('');
+
+
+  let sortedMovies;
+  if (sortBy === 'recent') sortedMovies = watched.slice().reverse();
+  if (sortBy === 'title') sortedMovies = watched.slice().sort((a, b) => a.title.localeCompare(b.title));
+  if (sortBy === 'imdb') sortedMovies = watched.slice().sort((a, b) => b.imdbRating - a.imdbRating);
+  if (sortBy === 'userRating') sortedMovies = watched.slice().sort((a, b) => b.userRating - a.userRating);
+
+  const filteredMovies = sortedMovies.filter((movie) => movie.title.toLowerCase().includes(filter.toLowerCase()));
+
+
+  return <>
+    <div className="features">
+      <div>
+        <input type="text" className="filter" value={filter} onChange={(e) => setfilter(e.target.value)} placeholder="Search by filter" ></input>
+      </div>
+
+      <div className="sortby">
+        <span>Sort by</span>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <option value="title">Title</option>
+          <option value="imdb">IMDb Rating</option>
+          <option value="userRating">User Rating</option>
+          <option value="recent">Recent</option>
+        </select>
+      </div>
+    </div>
+
+    <ul className="list">
+      {filteredMovies.map((movie) => <WatchedMovie movie={movie} key={movie.imdbID} onDeleteWatched={onDeleteWatched} />)}
+    </ul>
+  </>
 }
 
-function WatchedMovie({ movie,onDeleteWatched }) {
+function WatchedMovie({ movie, onDeleteWatched }) {
   return <li key={movie.imdbID}>
     <img src={movie.poster} alt={`${movie.title} poster`} />
     <h3>{movie.title}</h3>
@@ -259,7 +295,7 @@ function WatchedMovie({ movie,onDeleteWatched }) {
         <span>⏳</span>
         <span>{movie.runtime} min</span>
       </p>
-      <button className="btn-delete" onClick={()=>onDeleteWatched(movie.imdbID)}>
+      <button className="btn-delete" onClick={() => onDeleteWatched(movie.imdbID)}>
         X
       </button>
     </div>
